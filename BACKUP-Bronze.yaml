@@ -1,0 +1,61 @@
+﻿Parameters:
+  KMSKey:
+   Description: "KMS KEY ARN to ENCRYPT the Vaults"
+   Type: String
+   Default: ""
+Resources:
+  BackupRoleBronze:
+    Type: "AWS::IAM::Role"
+    Properties:
+     RoleName: "BRONZE-ROLE"
+     AssumeRolePolicyDocument:
+       Version: "2012-10-17"
+       Statement:
+         -
+          Effect: "Allow"
+          Principal:
+            Service:
+              - "backup.amazonaws.com"
+          Action:
+            - "sts:AssumeRole"
+     ManagedPolicyArns:
+       - "arn:aws:iam::aws:policy/service-role/AWSBackupServiceRolePolicyForBackup"
+       - "arn:aws:iam::aws:policy/service-role/AWSBackupServiceRolePolicyForRestores"
+
+## Weekly Backup
+
+  BronzeBackups:
+    Type: "AWS::Backup::BackupVault"
+    Properties:
+      BackupVaultName: "BRONZE-BACKUP-VAULT"
+      EncryptionKeyArn: !Ref KMSKey
+
+  BackupPlanWithWeeklyBackups:
+    Type: "AWS::Backup::BackupPlan"
+    Properties:
+      BackupPlan:
+        BackupPlanName: "BRONZE-BACKUP-PLAN"
+        BackupPlanRule:
+          -
+            RuleName: "BRONZE-BACKUP-RULE"
+            TargetBackupVault: !Ref BronzeBackups
+            ScheduleExpression: "cron(0 0 ? * FRI *)"
+            Lifecycle:
+              DeleteAfterDays: 10
+              #MoveToColdStorageAfterDays: 10
+    DependsOn: BronzeBackups
+
+
+  TagBasedBackupSelectionWeekly:
+    Type: "AWS::Backup::BackupSelection"
+    Properties:
+      BackupSelection:
+        SelectionName: "TagBasedBackupSelectionWeekly"
+        IamRoleArn: !GetAtt BackupRoleBronze.Arn
+        ListOfTags:
+         -
+           ConditionType: "STRINGEQUALS"
+           ConditionKey: "BACKUP"
+           ConditionValue: "Bronze"
+      BackupPlanId: !Ref BackupPlanWithWeeklyBackups
+    DependsOn: BackupPlanWithWeeklyBackups

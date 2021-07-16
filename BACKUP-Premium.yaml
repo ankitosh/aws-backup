@@ -1,0 +1,173 @@
+﻿Parameters:
+  KMSKey:
+   Description: "KMS KEY ARN to ENCRYPT the Vaults"
+   Type: String
+   Default: ""
+Resources:
+  BackupRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+     RoleName: "PREMIUM-ROLE"
+     AssumeRolePolicyDocument:
+       Version: "2012-10-17"
+       Statement:
+         -
+          Effect: "Allow"
+          Principal:
+            Service:
+              - "backup.amazonaws.com"
+          Action:
+            - "sts:AssumeRole"
+     ManagedPolicyArns:
+       - "arn:aws:iam::aws:policy/service-role/AWSBackupServiceRolePolicyForBackup"
+       - "arn:aws:iam::aws:policy/service-role/AWSBackupServiceRolePolicyForRestores"
+
+# Daily Backup
+  BackupVaultWithDailyBackups:
+    Type: "AWS::Backup::BackupVault"
+    Properties:
+      BackupVaultName: "COM-DAILY-BACKUP-VAULT"
+      EncryptionKeyArn: !Ref KMSKey
+
+  BackupPlanWithDailyBackups:
+    Type: "AWS::Backup::BackupPlan"
+    Properties:
+      BackupPlan:
+        BackupPlanName: "COM-DAILY-BACKUP-PLAN"
+        BackupPlanRule:
+          -
+            RuleName: "COM-DAILY-BACKUP-RULE"
+            TargetBackupVault: !Ref BackupVaultWithDailyBackups
+            ScheduleExpression: "cron(0 0/4 * * ? *)"
+            Lifecycle:
+              DeleteAfterDays: 1
+              # MoveToColdStorageAfterDays: 10
+    DependsOn: BackupVaultWithDailyBackups
+
+
+  TagBasedBackupSelectionDaily:
+    Type: "AWS::Backup::BackupSelection"
+    Properties:
+      BackupSelection:
+        SelectionName: "TagBasedBackupSelectionDaily"
+        IamRoleArn: !GetAtt BackupRole.Arn
+        ListOfTags:
+         -
+           ConditionType: "STRINGEQUALS"
+           ConditionKey: "BACKUP"
+           ConditionValue: "Premium"
+      BackupPlanId: !Ref BackupPlanWithDailyBackups
+    DependsOn: BackupPlanWithDailyBackups
+
+## Weekly Backup
+
+  BackupVaultWithWeeklyBackups:
+    Type: "AWS::Backup::BackupVault"
+    Properties:
+      BackupVaultName: "COM-WEEKLY-BACKUP-VAULT"
+      EncryptionKeyArn: !Ref KMSKey
+
+  BackupPlanWithWeeklyBackups:
+    Type: "AWS::Backup::BackupPlan"
+    Properties:
+      BackupPlan:
+        BackupPlanName: "COM-WEEKLY-BACKUP-PLAN"
+        BackupPlanRule:
+          -
+            RuleName: "COM-WEEKLY-BACKUP-RULE"
+            TargetBackupVault: !Ref BackupVaultWithWeeklyBackups
+            ScheduleExpression: "cron(0 0 * * ? *)"
+            Lifecycle:
+              DeleteAfterDays: 31
+              #MoveToColdStorageAfterDays: 10
+    DependsOn: BackupVaultWithWeeklyBackups
+
+
+  TagBasedBackupSelectionWeekly:
+    Type: "AWS::Backup::BackupSelection"
+    Properties:
+      BackupSelection:
+        SelectionName: "TagBasedBackupSelectionWeekly"
+        IamRoleArn: !GetAtt BackupRole.Arn
+        ListOfTags:
+         -
+           ConditionType: "STRINGEQUALS"
+           ConditionKey: "BACKUP"
+           ConditionValue: "Bronze"
+      BackupPlanId: !Ref BackupPlanWithWeeklyBackups
+    DependsOn: BackupPlanWithWeeklyBackups
+
+
+
+## MONTHLY BACKUP
+  BackupVaultWithMonthlyBackups:
+    Type: "AWS::Backup::BackupVault"
+    Properties:
+      BackupVaultName: "COM-MONTHLY-BACKUP-VAULT"
+      EncryptionKeyArn: !Ref KMSKey
+
+  BackupPlanWithMonthlyBackups:
+    Type: "AWS::Backup::BackupPlan"
+    Properties:
+      BackupPlan:
+        BackupPlanName: "COM-MONTHLY-BACKUP-PLAN"
+        BackupPlanRule: 
+          -
+            RuleName: "COM-MONTHLY-BACKUP-RULE"
+            TargetBackupVault: !Ref BackupVaultWithMonthlyBackups
+            ScheduleExpression: "cron(0 0 1 1/1 ? *)"
+            Lifecycle:
+              DeleteAfterDays: 365
+              MoveToColdStorageAfterDays: 31
+    DependsOn: BackupVaultWithMonthlyBackups
+
+  TagBasedBackupSelectionMonthly:
+    Type: "AWS::Backup::BackupSelection"
+    Properties:
+      BackupSelection:
+        SelectionName: "TagBasedBackupSelectionMonthly"
+        IamRoleArn: !GetAtt BackupRole.Arn
+        ListOfTags:
+         -
+           ConditionType: "STRINGEQUALS"
+           ConditionKey: "BACKUP"
+           ConditionValue: "Premium"
+      BackupPlanId: !Ref BackupPlanWithMonthlyBackups
+    DependsOn: BackupPlanWithMonthlyBackups
+
+
+# Yearly Backup
+  BackupVaultWithYearlyBackups:
+    Type: "AWS::Backup::BackupVault"
+    Properties:
+      BackupVaultName: "COM-YEARLY-BACKUP-VAULT"
+      EncryptionKeyArn: !Ref KMSKey
+
+  BackupPlanWithYearlyBackups:
+    Type: "AWS::Backup::BackupPlan"
+    Properties:
+      BackupPlan:
+        BackupPlanName: "COM-YEARLY-BACKUP-PLAN"
+        BackupPlanRule:
+          -
+            RuleName: "COM-YEARLY-BACKUP-RULE"
+            TargetBackupVault: !Ref BackupVaultWithYearlyBackups
+            ScheduleExpression: "cron(0 0 31 12 ? *)"
+            Lifecycle:
+              DeleteAfterDays: 2555
+              MoveToColdStorageAfterDays: 7
+    DependsOn: BackupVaultWithYearlyBackups
+
+  TagBasedBackupSelection:
+    Type: "AWS::Backup::BackupSelection"
+    Properties:
+      BackupSelection:
+        SelectionName: "TagBasedBackupSelectionYearly"
+        IamRoleArn: !GetAtt BackupRole.Arn
+        ListOfTags:
+         -
+           ConditionType: "STRINGEQUALS"
+           ConditionKey: "BACKUP"
+           ConditionValue: "Premium"
+      BackupPlanId: !Ref BackupPlanWithYearlyBackups
+    DependsOn: BackupPlanWithYearlyBackups

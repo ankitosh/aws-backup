@@ -1,0 +1,60 @@
+﻿Parameters:
+  KMSKey:
+   Description: "KMS KEY ARN to ENCRYPT the Vaults"
+   Type: String
+   Default: ""
+Resources:
+  BackupRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+     RoleName: "silver-role"
+     AssumeRolePolicyDocument:
+       Version: "2012-10-17"
+       Statement:
+         -
+          Effect: "Allow"
+          Principal:
+            Service:
+              - "backup.amazonaws.com"
+          Action:
+            - "sts:AssumeRole"
+     ManagedPolicyArns:
+       - "arn:aws:iam::aws:policy/service-role/AWSBackupServiceRolePolicyForBackup"
+       - "arn:aws:iam::aws:policy/service-role/AWSBackupServiceRolePolicyForRestores"
+
+# Daily Backup
+  BackupVaultWithDailyBackups:
+    Type: "AWS::Backup::BackupVault"
+    Properties:
+      BackupVaultName: "COM-DAILY-BACKUP-VAULT"
+      EncryptionKeyArn: !Ref KMSKey
+
+  BackupPlanWithDailyBackups:
+    Type: "AWS::Backup::BackupPlan"
+    Properties:
+      BackupPlan:
+        BackupPlanName: "SILVER-BACKUP-PLAN"
+        BackupPlanRule:
+          -
+            RuleName: "SILVER-BACKUP-RULE"
+            TargetBackupVault: !Ref BackupVaultWithDailyBackups
+            ScheduleExpression: "cron(0 0 * * ? *)"
+            Lifecycle:
+              DeleteAfterDays: 7
+              # MoveToColdStorageAfterDays: 10
+    DependsOn: BackupVaultWithDailyBackups
+
+
+  TagBasedBackupSelectionDaily:
+    Type: "AWS::Backup::BackupSelection"
+    Properties:
+      BackupSelection:
+        SelectionName: "TagBasedBackupSelectionDaily"
+        IamRoleArn: !GetAtt BackupRole.Arn
+        ListOfTags:
+         -
+           ConditionType: "STRINGEQUALS"
+           ConditionKey: "BACKUP"
+           ConditionValue: "Silver"
+      BackupPlanId: !Ref BackupPlanWithDailyBackups
+    DependsOn: BackupPlanWithDailyBackups
